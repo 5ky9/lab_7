@@ -1,0 +1,6 @@
+{"products":[
+{"id":1,"name":"Молоко","category":"Молочные","price":450,"unit":"л","image":"milk.jpg"},
+{"id":2,"name":"Мёд","category":"Бакалея","price":3500,"unit":"кг","image":"honey.jpg"},
+{"id":3,"name":"Картофель","category":"Овощи","price":180,"unit":"кг","image":null},
+{"id":4,"name":"Сметана","category":"Молочные","price":900,"unit":"кг","image":null}
+]}
