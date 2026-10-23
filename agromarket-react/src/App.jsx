@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from './api.js';
 import AddProductForm from './components/AddProductForm.jsx';
 import ChangePasswordForm from './components/ChangePasswordForm.jsx';
@@ -35,19 +35,19 @@ function App() {
   const [ordersVersion, setOrdersVersion] = useState(0);
   const [notice, setNotice] = useState('');
 
-  const loadProducts = useCallback(async () => {
-    setProductsError('');
-    try {
-      const result = await apiFetch('/products');
-      setProducts(result);
-    } catch (error) {
-      setProductsError(error.message);
-    }
-  }, []);
-
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    let active = true;
+    apiFetch('/products')
+      .then((result) => {
+        if (active) setProducts(result);
+      })
+      .catch((error) => {
+        if (active) setProductsError(error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const onUnauthorized = () => {
@@ -61,7 +61,6 @@ function App() {
 
   useEffect(() => {
     if (!localStorage.getItem('token')) {
-      setCheckingSession(false);
       return undefined;
     }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { apiFetch } from '../api.js';
 
 const statuses = [
@@ -13,21 +13,26 @@ export default function OrdersPanel({ refreshKey }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const loadOrders = useCallback(async () => {
-    setError('');
-    setLoading(true);
-    try {
-      setOrders(await apiFetch('/orders'));
-    } catch (loadError) {
-      setError(loadError.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders, refreshKey]);
+    let active = true;
+    Promise.resolve()
+      .then(() => apiFetch('/orders'))
+      .then((data) => {
+        if (active) {
+          setOrders(data);
+          setError('');
+        }
+      })
+      .catch((loadError) => {
+        if (active) setError(loadError.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [refreshKey]);
 
   async function updateStatus(orderId, status) {
     setError('');

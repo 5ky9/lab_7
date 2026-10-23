@@ -15,11 +15,13 @@ export default function MyOrders({ refreshKey }) {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
-    apiFetch('/orders/my')
+    Promise.resolve()
+      .then(() => apiFetch('/orders/my'))
       .then((data) => {
-        if (active) setOrders(data);
+        if (active) {
+          setOrders(data);
+          setError('');
+        }
       })
       .catch((loadError) => {
         if (active) setError(loadError.message);
