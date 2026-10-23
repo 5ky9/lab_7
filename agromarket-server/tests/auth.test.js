@@ -149,3 +149,28 @@ describe('Регистрация, вход и профиль', () => {
     expect(passwordChange.status).toBe(404);
   });
 });
+
+describe('Вход администратора и защита от перебора', () => {
+  it('админ входит и получает JWT из трёх частей', async () => {
+    const response = await request(app)
+      .post('/api/auth/login')
+      .send({ email: process.env.TEST_ADMIN_EMAIL, password: process.env.TEST_ADMIN_PASSWORD });
+
+    expect(response.status).toBe(200);
+    expect(response.body.token.split('.')).toHaveLength(3);
+    expect(response.body.user.role).toBe('admin');
+  });
+
+  it('неверный пароль и неизвестный e-mail дают одинаковый ответ', async () => {
+    const wrongPassword = await request(app)
+      .post('/api/auth/login')
+      .send({ email: process.env.TEST_ADMIN_EMAIL, password: 'не-тот-пароль' });
+    const unknownEmail = await request(app)
+      .post('/api/auth/login')
+      .send({ email: uniqueEmail('nobody'), password: 'не-тот-пароль' });
+
+    expect(wrongPassword.status).toBe(401);
+    expect(unknownEmail.status).toBe(401);
+    expect(wrongPassword.body).toEqual(unknownEmail.body);
+  });
+});

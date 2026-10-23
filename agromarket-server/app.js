@@ -17,7 +17,10 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
 app.use(helmet());
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: '10kb' }));
-app.use(logger);
+// В тестах лог каждого запроса только мешает читать результат
+if (process.env.NODE_ENV !== 'test') {
+  app.use(logger);
+}
 
 app.get('/api/health', async (req, res) => {
   await pool.query('SELECT 1');

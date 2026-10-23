@@ -26,4 +26,23 @@ describe('Публичный каталог товаров', () => {
     expect(response.status).toBe(404);
     expect(response.body.error).toBe('Товар не найден');
   });
+
+  it('у товара есть id, name и price', async () => {
+    const response = await request(app).get('/api/products');
+    const product = response.body[0];
+
+    expect(product).toHaveProperty('id');
+    expect(product).toHaveProperty('name');
+    expect(product).toHaveProperty('price');
+  });
+
+  it('GET /api/products/:id возвращает тот же товар, что в списке', async () => {
+    const list = await request(app).get('/api/products');
+    const first = list.body[0];
+
+    const response = await request(app).get(`/api/products/${first.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.name).toBe(first.name);
+  });
 });
