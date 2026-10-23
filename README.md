@@ -1,5 +1,8 @@
 # АгроМаркет
 
+[![API tests](https://github.com/5ky9/lab_7/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/5ky9/lab_7/actions/workflows/ci.yml)
+[![React checks](https://github.com/5ky9/lab_7/actions/workflows/react-ci.yml/badge.svg?branch=main)](https://github.com/5ky9/lab_7/actions/workflows/react-ci.yml)
+
 Full-stack учебный магазин локальных продуктов: React + Vite, Express, PostgreSQL и JWT-аутентификация.
 
 ## Возможности
@@ -72,6 +75,12 @@ Full-stack учебный магазин локальных продуктов: 
 | `agromarket-server` | `npm run dev` | API с перезапуском при изменениях |
 | `agromarket-server` | `npm start` | Запуск API |
 | `agromarket-server` | `npm run db:init` | Пересоздание схемы и заполнение базы |
+| `agromarket-server` | `npm test` | Запуск интеграционных API- и unit-тестов |
+| `agromarket-server` | `npm run test:watch` | Запуск Vitest в watch-режиме |
+| `agromarket-server` | `npm run test:unit` | Запуск unit-тестов middleware без PostgreSQL |
+| `agromarket-server` | `npm run coverage` | Запуск тестов с отчётом покрытия |
+| `agromarket-server` | `npm run coverage:unit` | Отчёт покрытия unit-теста middleware |
+| `agromarket-server` | `npm run db:init:test` | Безопасный сброс и заполнение только тестовой БД |
 | `agromarket-react` | `npm run dev` | Dev-сервер React |
 | `agromarket-react` | `npm run build` | Production-сборка в `dist` |
 | корень | `docker compose up -d db` | Запуск PostgreSQL |
@@ -102,6 +111,71 @@ Full-stack учебный магазин локальных продуктов: 
 ## Postman
 
 Импортируйте `agromarket-server/postman/agromarket.postman_collection.json`. Установите значения переменных `adminEmail` и `adminPassword` в соответствии с локальным `.env`, затем запустите коллекцию через Collection Runner по порядку. Коллекция сохраняет токены и проверяет доступ без токена (`401`) и с ролью покупателя (`403`).
+
+## Лабораторная 8: тесты, Git workflow и CI
+
+### Запуск тестов API
+
+Тесты используют **отдельную** базу с точным именем `agromarket_test`. Не указывайте адрес рабочей базы: тестовый setup удаляет и заново создаёт таблицы в `agromarket_test` перед каждым запуском.
+
+1. Создайте пустую базу `agromarket_test`. Для PostgreSQL из Docker Compose выполните из корня проекта:
+
+   ```powershell
+   docker compose up -d db
+   docker compose exec db psql -U agromarket -d agromarket -c "CREATE DATABASE agromarket_test"
+   ```
+
+   Если база уже существует, шаг с `CREATE DATABASE` пропустите.
+
+2. Подготовьте настройки тестовой базы:
+
+   ```powershell
+   Copy-Item agromarket-server\.env.test.example agromarket-server\.env.test
+   cd agromarket-server
+   npm ci
+   ```
+
+   `.env.test` содержит отдельные тестовые значения и исключён из Git. Тесты прекратят запуск с явной ошибкой, если база отсутствует, секрет слишком короткий или имя базы не `agromarket_test`.
+
+3. Запустите тесты и покрытие:
+
+   ```powershell
+   npm test
+   npm run coverage
+   ```
+
+   Каждый запуск сбрасывает только тестовую схему, подготавливает demo-каталог и отдельного тестового администратора. Набор проверяет health endpoint, поиск и каталог, регистрацию, нижний регистр e-mail, защиту от присвоения роли, вход, дубликаты (`409`), профиль и смену пароля, доступы `401`/`403`, CRUD товара, создание и просмотр своих заявок, смену их статусов и JWT middleware. Для unit-тестов middleware используются mock-объекты; интеграционные тесты обращаются к Express-приложению через Supertest и проверяют работу маршрутов с PostgreSQL.
+
+Unit-only прогон middleware (`npm run coverage:unit`) даёт фактическое покрытие **Lines: 100%**; это значение не является покрытием всего API. Полный процент строк необходимо записать из `npm run coverage`, который требует работающей базы `agromarket_test`; интеграционное покрытие пока не удалось измерить в окружении без PostgreSQL. `middleware/logger.js` вызывается на ответах запросов, однако не входит в измеряемый набор coverage — конфигурация включает маршруты и `middleware/auth.js`.
+
+### Непрерывная интеграция
+
+GitHub Actions запускает `.github/workflows/ci.yml` при Pull Request в `main` и при push в `main`: на чистой Ubuntu поднимается PostgreSQL 16, устанавливаются зависимости через `npm ci`, проходят API-тесты, затем собирается React-приложение. Отдельный `.github/workflows/react-ci.yml` запускает в клиентском приложении `npm ci`, ESLint и production-сборку. Тестовые учётные данные workflow предназначены только для временной базы CI.
+
+### Git workflow и code review
+
+Работайте в отдельной ветке и используйте Conventional Commits:
+
+```text
+git switch -c feature/api-tests
+git status
+git add .
+git commit -m "test: add API integration coverage"
+git push -u origin feature/api-tests
+```
+
+Далее откройте Pull Request `feature/api-tests` → `main`, дождитесь зелёного CI и независимого code review. Для обязательного PR и одного approval включите в настройках GitHub репозитория **Settings → Branches → Add branch protection rule** для `main`: включите **Require a pull request before merging** и **Require approvals: 1**; при необходимости отметьте **Require status checks to pass before merging** и выберите CI job `test`. Эти настройки применяются на GitHub, а не файлами в локальном проекте.
+
+Шаблон PR находится в `.github/pull_request_template.md`. CI также проверяет production-сборку клиентского React-приложения.
+
+### Ответы по заданию
+
+- Если убрать защиту `adminOnly`, тесты создания/изменения/удаления товара без JWT или с токеном пользователя перестанут получать ожидаемые `401`/`403`; проверки доступа к заявкам обнаружат аналогичное нарушение.
+- Unit-тест вызывает middleware отдельно с mock-объектами `req`/`res` и изолированно проверяет логику. Интеграционный тест проходит через настоящий HTTP-роут Express, middleware, запросы PostgreSQL и проверяет итоговый ответ API.
+- Тест удаления пользователя после выдачи JWT проходит ветку `404` в `/auth/me` и смене пароля: действительная подпись ещё не означает, что запись пользователя существует. `npm run coverage` покажет другие конкретные непокрытые строки по результатам полного API-прогона.
+- Покрытие `logger.js` намеренно не включено в метрику: это технический middleware логирования, а целевое покрытие лабораторной — маршруты и авторизация. Поэтому `0%` по logger не является признаком сбоя тестов.
+- Тестовое имя БД проверяется до выполнения SQL со сбросом схемы; рабочую базу приложение не должно очищать тестами.
+- React читает адрес API из `VITE_API_URL` (см. `agromarket-react/.env.example`); для production адрес задаётся переменной окружения сборки, секреты в `VITE_*` помещать нельзя.
 
 ## Ответы на контрольные вопросы
 
